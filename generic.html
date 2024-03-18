@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLS Data Table</title>
+<style>
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    th, td {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+</style>
+</head>
+<body>
+
+<h2>BLS Data Table</h2>
+
+<!-- Filter inputs -->
+<div>
+    <label for="seriesIdFilter">Series ID:</label>
+    <input type="text" id="seriesIdFilter" oninput="filterTable('seriesId', this.value)">
+    <label for="yearFilter">Year:</label>
+    <input type="text" id="yearFilter" oninput="filterTable('year', this.value)">
+    <label for="periodFilter">Period:</label>
+    <input type="text" id="periodFilter" oninput="filterTable('period', this.value)">
+    <label for="valueFilter">Value:</label>
+    <input type="text" id="valueFilter" oninput="filterTable('value', this.value)">
+    <label for="footnotesFilter">Footnotes:</label>
+    <input type="text" id="footnotesFilter" oninput="filterTable('footnotes', this.value)">
+</div>
+
+<!-- Table -->
+<table id="data-table">
+    <thead>
+        <tr>
+            <th>Series ID</th>
+            <th>Year</th>
+            <th>Period</th>
+            <th>Value</th>
+            <th>Footnotes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Data will be dynamically populated here -->
+    </tbody>
+</table>
+
+<script>
+    function filterTable(column, value) {
+        const filter = value.toUpperCase();
+        const rows = document.querySelectorAll("#data-table tbody tr");
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll(`td:nth-child(${getColumnIndex(column)})`);
+            let rowVisible = false;
+
+            cells.forEach(cell => {
+                if (cell.textContent.toUpperCase().includes(filter)) {
+                    rowVisible = true;
+                }
+            });
+
+            row.style.display = rowVisible ? "" : "none";
+        });
+    }
+
+    function getColumnIndex(columnName) {
+        const headers = document.querySelectorAll("#data-table th");
+        for (let i = 0; i < headers.length; i++) {
+            if (headers[i].textContent.toUpperCase() === columnName.toUpperCase()) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    fetch('https://api.bls.gov/publicAPI/v1/timeseries/data/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({"seriesid": ['CUUR0000SA0','SUUR0000SA0'],"startyear":"2011", "endyear":"2024"})
+    })
+    .then(response => response.json())
+    .then(data => {
+        const tableBody = document.querySelector('#data-table tbody');
+        data.Results.series.forEach(series => {
+            const seriesId = series.seriesID;
+            series.data.forEach(item => {
+                const year = item.year;
+                const period = item.period;
+                const value = item.value;
+                let footnotes = "";
+                item.footnotes.forEach(footnote => {
+                    if (footnote) {
+                        footnotes += footnote.text + ',';
+                    }
+                });
+                if (period >= 'M01' && period <= 'M12') {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${seriesId}</td>
+                        <td>${year}</td>
+                        <td>${period}</td>
+                        <td>${value}</td>
+                        <td>${footnotes.slice(0, -1)}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            });
+        });
+    })
+    .catch(error => console.error('Error:', error));
+</script>
+
+</body>
+</html>
